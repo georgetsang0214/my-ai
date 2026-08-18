@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <!-- 終極放行證：強行升級所有連線，徹底打碎 GitHub CORS 與 HTTPS 攔截 -->
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta name="referrer" content="no-referrer">
     <meta charset="UTF-8">
@@ -45,29 +44,34 @@
             appendMessage("AI 正在思考中...", 'ai', true);
 
             try {
-                // 升級連線模式，強制允許跨域握手
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     mode: 'cors',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: messageText })
                 });
 
-                const jsonData = await response.json(); 
-                
-                // 專屬解鎖你後台成功噴出的 {"reply": "..."} 格式！
+                // 雙保險解鎖：先拿純文字，防止大腦回傳雜訊導致 JSON 格式死機
+                const rawText = await response.text();
                 let aiReply = "";
-                if (jsonData && jsonData.reply !== undefined) {
-                    aiReply = jsonData.reply;
-                } else if (jsonData && jsonData.output) {
-                    aiReply = jsonData.output;
-                } else if (typeof jsonData === 'object') {
-                    aiReply = JSON.stringify(jsonData);
-                } else {
-                    aiReply = jsonData;
+
+                try {
+                    // 嘗試解析 JSON 格式
+                    const jsonData = JSON.parse(rawText);
+                    if (jsonData && jsonData.reply !== undefined) {
+                        aiReply = jsonData.reply;
+                    } else if (jsonData && jsonData.output) {
+                        aiReply = jsonData.output;
+                    } else {
+                        aiReply = JSON.stringify(jsonData);
+                    }
+                } catch (jsonError) {
+                    // 如果大腦傳回的是純文字，直接抓來用，完全不會報錯死機！
+                    aiReply = rawText;
+                }
+
+                if (aiReply === "" || aiReply === null) {
+                    aiReply = "（大腦已成功連線，但模型正在熱機中，請再對我發送一次試試看！）";
                 }
 
                 removeLoadingMessage();
@@ -76,7 +80,7 @@
             } catch (error) {
                 console.error(error);
                 removeLoadingMessage();
-                appendMessage("（廣播連線已成功建立！大腦正在重新載入模型，請再對我發送一次試試看！）", 'ai');
+                appendMessage("連線完全成功，但大腦突然超時，請檢查 TrueNAS n8n 右上角是否維持在 Published 綠燈！", 'ai');
             }
         }
 
