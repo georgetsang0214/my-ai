@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的免費自建 AI 系統</title>
@@ -30,7 +31,7 @@
 
     <script>
         // 已經精準設定為你 TrueNAS 上的 n8n 正式網址
-        const API_URL = "https://gcfmarket.com"; 
+        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
         
         let chatHistory = ""; // 用來儲存先前的對話歷史
 
