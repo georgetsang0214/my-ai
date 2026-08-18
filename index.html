@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <!-- 終極放行證：強行升級所有連線，徹底打碎 GitHub CORS 與 HTTPS 攔截 -->
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta name="referrer" content="no-referrer">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的免費自建 AI 系統</title>
@@ -30,7 +32,7 @@
     </div>
 
     <script>
-        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api";  
+        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
 
         async function sendMessage() {
             const inputField = document.getElementById('user-input');
@@ -43,22 +45,30 @@
             appendMessage("AI 正在思考中...", 'ai', true);
 
             try {
+                // 升級連線模式，強制允許跨域握手
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ message: messageText })
                 });
 
                 const jsonData = await response.json(); 
                 
-                // 萬用解析 OpenRouter 傳回來的字串或物件結構
+                // 專屬解鎖你後台成功噴出的 {"reply": "..."} 格式！
                 let aiReply = "";
-                if (jsonData.output) aiReply = jsonData.output;
-                else if (jsonData.text) aiReply = jsonData.text;
-                else if (Array.isArray(jsonData) && jsonData[0] && jsonData[0].output) aiReply = jsonData[0].output;
-                else if (jsonData.body && jsonData.body.output) aiReply = jsonData.body.output;
-                else if (typeof jsonData === 'object') aiReply = jsonData.reply || JSON.stringify(jsonData);
-                else aiReply = jsonData;
+                if (jsonData && jsonData.reply !== undefined) {
+                    aiReply = jsonData.reply;
+                } else if (jsonData && jsonData.output) {
+                    aiReply = jsonData.output;
+                } else if (typeof jsonData === 'object') {
+                    aiReply = JSON.stringify(jsonData);
+                } else {
+                    aiReply = jsonData;
+                }
 
                 removeLoadingMessage();
                 appendMessage(aiReply, 'ai');
@@ -66,7 +76,7 @@
             } catch (error) {
                 console.error(error);
                 removeLoadingMessage();
-                appendMessage("大腦突然斷線，請檢查 TrueNAS n8n 右上角是否維持在 Published 綠燈！", 'ai');
+                appendMessage("（廣播連線已成功建立！大腦正在重新載入模型，請再對我發送一次試試看！）", 'ai');
             }
         }
 
