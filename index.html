@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的免費自建 AI 系統</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        #chat-container { width: 100%; max-width: 600px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 80vh; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; border-bottom: 1px solid #eee; display: flex; flex-direction: column; }
+        .message { margin-bottom: 15px; padding: 10px; border-radius: 8px; max-width: 80%; word-break: break-all; line-height: 1.5; }
+        .user { background-color: #007bff; color: white; align-self: flex-end; margin-left: auto; }
+        .ai { background-color: #e9ecef; color: #333; align-self: flex-start; }
+        #input-container { display: flex; padding: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h2>🤖 我的專屬 AI 助理</h2>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="請輸入訊息..." onkeydown="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">發送</button>
+        </div>
+    </div>
+
+    <script>
+        // 已經精準設定為你 TrueNAS 上的 n8n 正式網址
+        const API_URL = "https://gcfmarket.com"; 
+        
+        let chatHistory = ""; // 用來儲存先前的對話歷史
+
+        async function sendMessage() {
+            const inputField = document.getElementById('user-input');
+            const messageText = inputField.value.trim();
+            if (!messageText) return;
+
+            appendMessage(messageText, 'user');
+            inputField.value = '';
+
+            appendMessage("AI 正在思考中...", 'ai', true);
+
+            try {
+                // 呼叫你在 TrueNAS 裡自建的 n8n API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: messageText,
+                        history: chatHistory
+                    })
+                });
+
+                const jsonData = await response.json(); // 改成解析 JSON 格式
+                const aiReply = jsonData.reply || jsonData; // 提取 reply 裡面的純文字
+                
+                removeLoadingMessage();
+                appendMessage(aiReply, 'ai'); // 只把純文字丟到畫面上
+
+                // 累加記憶，讓下一輪對話可以帶過去
+                chatHistory += `使用者：${messageText}\nAI：${aiReply}\n`;
+
+            } catch (error) {
+                console.error(error);
+                removeLoadingMessage();
+                appendMessage("系統連線失敗，請確認 n8n 的開關是否切換為 Active (On)！", 'ai');
+            }
+        }
+
+        function appendMessage(text, sender, isLoading = false) {
+            const messagesDiv = document.getElementById('messages');
+            const msgElement = document.createElement('div');
+            msgElement.classList.add('message', sender);
+            if (isLoading) msgElement.id = 'loading-msg';
+            msgElement.innerText = text;
+            messagesDiv.appendChild(msgElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeLoadingMessage() {
+            const loadingMsg = document.getElementById('loading-msg');
+            if (loadingMsg) loadingMsg.remove();
+        }
+    </script>
+</body>
+</html>
