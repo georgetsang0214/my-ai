@@ -13,25 +13,95 @@
         .message { margin-bottom: 15px; padding: 10px; border-radius: 8px; max-width: 80%; word-break: break-all; line-height: 1.5; }
         .user { background-color: #007bff; color: white; align-self: flex-end; margin-left: auto; }
         .ai { background-color: #e9ecef; color: #333; align-self: flex-start; }
-        #input-container { display: flex; padding: 10px; }
+        #input-container { display: flex; padding: 10px; align-items: center; }
         input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 5px; cursor: pointer; }
         button:hover { background: #0056b3; }
+        /* 🎙️ 麥克風按鈕樣式 */
+        .mic-btn { background: #28a745; margin-left: 5px; font-size: 16px; padding: 10px 15px; }
+        .mic-btn:hover { background: #218838; }
+        .recording { background: #dc3545 !important; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h2>🤖 我的專屬 AI 助理</h2>
+    <h2>🤖 我的雙向語音 AI 助理 (廣東話對講)</h2>
     <div id="chat-container">
         <div id="messages"></div>
         <div id="input-container">
-            <input type="text" id="user-input" placeholder="請輸入訊息..." onkeydown="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="請輸入訊息或按麥克風說話..." onkeydown="if(event.key==='Enter') sendMessage()">
+            <!-- 🎙️ 麥克風按鈕 -->
+            <button id="mic-button" class="mic-btn" onclick="toggleVoiceRecognition()">🎙️</button>
             <button onclick="sendMessage()">發送</button>
         </div>
     </div>
 
     <script>
         const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
+        let recognition;
+        let isRecording = false;
+
+        // 🔊 廣東話真人朗讀引擎
+        function speakCantonese(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let cleanText = text.replace(/[\*#`]/g, '').replace(/\(.*?\)/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'zh-HK'; 
+                utterance.pitch = 1.0; 
+                utterance.rate = 1.0;  
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // 🎙️ 廣東話語音辨識（聽你說話）核心引擎
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false; // 講完一句自動停止
+            recognition.lang = 'zh-HK'; // 強制設定識別香港廣東話
+            recognition.interimResults = false;
+
+            recognition.onstart = function() {
+                isRecording = true;
+                const micBtn = document.getElementById('mic-button');
+                micBtn.innerText = "🛑 聽緊...";
+                micBtn.classList.add('recording');
+            };
+
+            recognition.onend = function() {
+                isRecording = false;
+                const micBtn = document.getElementById('mic-button');
+                micBtn.innerText = "🎙️";
+                micBtn.classList.remove('recording');
+            };
+
+            recognition.onresult = function(event) {
+                const speechToText = event.results[0][0].transcript;
+                document.getElementById('user-input').value = speechToText;
+                // 辨識成功後，自動幫你觸發發送！
+                sendMessage();
+            };
+
+            recognition.onerror = function(event) {
+                console.error("語音識別錯誤: ", event.error);
+                alert("語音識別失敗，請確保已允許瀏覽器使用麥克風權限！");
+            };
+        }
+
+        function toggleVoiceRecognition() {
+            if (!recognition) {
+                alert("此設備或瀏覽器不支援語音辨識輸入功能");
+                return;
+            }
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                window.speechSynthesis.cancel(); // 說話前先停止 AI 的播音
+                recognition.start();
+            }
+        }
 
         async function sendMessage() {
             const inputField = document.getElementById('user-input');
@@ -64,15 +134,12 @@
                         aiReply = JSON.stringify(jsonData);
                     }
                 } catch (jsonError) {
-                    // 如果抓到的是純文字字串，且裡面帶有 {"reply":" 格式，用正則表達式把大括號和引號強力剝離
                     let cleanText = rawText.trim();
                     if (cleanText.startsWith('{') && cleanText.includes('"reply"')) {
                         try {
-                            // 暴力提取引號中間的廣東話內容
                             const match = cleanText.match(/"reply"\s*:\s*"(.*)"/s);
-                            if (match && match[1]) {
-                                // 將轉義的換行符 \n 恢復成真正的換行
-                                aiReply = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                            if (match && match) {
+                                aiReply = match.replace(/\\n/g, '\n').replace(/\\"/g, '"');
                             } else {
                                 aiReply = cleanText;
                             }
@@ -90,6 +157,9 @@
 
                 removeLoadingMessage();
                 appendMessage(aiReply, 'ai');
+
+                // 觸發：文字噴出後自動朗讀
+                speakCantonese(aiReply);
 
             } catch (error) {
                 console.error(error);
