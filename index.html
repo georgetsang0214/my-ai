@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-   <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的免費自建 AI 系統</title>
     <style>
@@ -30,10 +30,7 @@
     </div>
 
     <script>
-        // 已經精準設定為你 TrueNAS 上的 n8n 正式網址
-        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
-        
-        let chatHistory = ""; // 用來儲存先前的對話歷史
+        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api";  
 
         async function sendMessage() {
             const inputField = document.getElementById('user-input');
@@ -46,18 +43,15 @@
             appendMessage("AI 正在思考中...", 'ai', true);
 
             try {
-                // 呼叫你在 TrueNAS 裡自建的 n8n API
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: messageText,
-                        history: chatHistory
-                    })
-                 const jsonData = await response.json(); 
+                    body: JSON.stringify({ message: messageText })
+                });
 
+                const jsonData = await response.json(); 
                 
-                // 終極防錯：自動在所有可能的欄位裡尋找純文字，找不到就強制轉字串
+                // 萬用解析 OpenRouter 傳回來的字串或物件結構
                 let aiReply = "";
                 if (jsonData.output) aiReply = jsonData.output;
                 else if (jsonData.text) aiReply = jsonData.text;
@@ -69,14 +63,10 @@
                 removeLoadingMessage();
                 appendMessage(aiReply, 'ai');
 
-
-                // 累加記憶，讓下一輪對話可以帶過去
-                chatHistory += `使用者：${messageText}\nAI：${aiReply}\n`;
-
             } catch (error) {
                 console.error(error);
                 removeLoadingMessage();
-                appendMessage("系統連線失敗，請確認 n8n 的開關是否切換為 Active (On)！", 'ai');
+                appendMessage("大腦突然斷線，請檢查 TrueNAS n8n 右上角是否維持在 Published 綠燈！", 'ai');
             }
         }
 
