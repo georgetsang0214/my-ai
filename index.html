@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的免費自建 AI 系統</title>
     <style>
@@ -54,13 +54,21 @@
                         message: messageText,
                         history: chatHistory
                     })
-                });
+                 const jsonData = await response.json(); 
 
-                const jsonData = await response.json(); // 改成解析 JSON 格式
-                const aiReply = jsonData.reply || jsonData; // 提取 reply 裡面的純文字
                 
+                // 終極防錯：自動在所有可能的欄位裡尋找純文字，找不到就強制轉字串
+                let aiReply = "";
+                if (jsonData.output) aiReply = jsonData.output;
+                else if (jsonData.text) aiReply = jsonData.text;
+                else if (Array.isArray(jsonData) && jsonData[0] && jsonData[0].output) aiReply = jsonData[0].output;
+                else if (jsonData.body && jsonData.body.output) aiReply = jsonData.body.output;
+                else if (typeof jsonData === 'object') aiReply = jsonData.reply || JSON.stringify(jsonData);
+                else aiReply = jsonData;
+
                 removeLoadingMessage();
-                appendMessage(aiReply, 'ai'); // 只把純文字丟到畫面上
+                appendMessage(aiReply, 'ai');
+
 
                 // 累加記憶，讓下一輪對話可以帶過去
                 chatHistory += `使用者：${messageText}\nAI：${aiReply}\n`;
