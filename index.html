@@ -51,12 +51,10 @@
                     body: JSON.stringify({ message: messageText })
                 });
 
-                // 雙保險解鎖：先拿純文字，防止大腦回傳雜訊導致 JSON 格式死機
                 const rawText = await response.text();
                 let aiReply = "";
 
                 try {
-                    // 嘗試解析 JSON 格式
                     const jsonData = JSON.parse(rawText);
                     if (jsonData && jsonData.reply !== undefined) {
                         aiReply = jsonData.reply;
@@ -66,8 +64,24 @@
                         aiReply = JSON.stringify(jsonData);
                     }
                 } catch (jsonError) {
-                    // 如果大腦傳回的是純文字，直接抓來用，完全不會報錯死機！
-                    aiReply = rawText;
+                    // 如果抓到的是純文字字串，且裡面帶有 {"reply":" 格式，用正則表達式把大括號和引號強力剝離
+                    let cleanText = rawText.trim();
+                    if (cleanText.startsWith('{') && cleanText.includes('"reply"')) {
+                        try {
+                            // 暴力提取引號中間的廣東話內容
+                            const match = cleanText.match(/"reply"\s*:\s*"(.*)"/s);
+                            if (match && match[1]) {
+                                // 將轉義的換行符 \n 恢復成真正的換行
+                                aiReply = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                            } else {
+                                aiReply = cleanText;
+                            }
+                        } catch (e) {
+                            aiReply = cleanText;
+                        }
+                    } else {
+                        aiReply = rawText;
+                    }
                 }
 
                 if (aiReply === "" || aiReply === null) {
@@ -80,7 +94,7 @@
             } catch (error) {
                 console.error(error);
                 removeLoadingMessage();
-                appendMessage("連線完全成功，但大腦突然超時，請檢查 TrueNAS n8n 右上角是否維持在 Published 綠燈！", 'ai');
+                appendMessage("大腦突然超時，請檢查 TrueNAS n8n 右上角是否維持在 Published 綠燈！", 'ai');
             }
         }
 
