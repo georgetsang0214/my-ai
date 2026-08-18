@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-   <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的免費自建 AI 系統</title>
     <style>
@@ -30,10 +30,8 @@
     </div>
 
     <script>
-        // 已經精準設定為你 TrueNAS 上的 n8n 正式網址
-        const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
-        
-        let chatHistory = ""; // 用來儲存先前的對話歷史
+        // 100% 正確的正式大腦穿透網址
+        const API_URL = "https://gcfmarket.com"; 
 
         async function sendMessage() {
             const inputField = document.getElementById('user-input');
@@ -51,11 +49,11 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: messageText,
-                        history: chatHistory
+                        message: messageText
                     })
-                 const jsonData = await response.json(); 
+                });
 
+                const jsonData = await response.json(); 
                 
                 // 終極防錯：自動在所有可能的欄位裡尋找純文字，找不到就強制轉字串
                 let aiReply = "";
@@ -68,10 +66,6 @@
 
                 removeLoadingMessage();
                 appendMessage(aiReply, 'ai');
-
-
-                // 累加記憶，讓下一輪對話可以帶過去
-                chatHistory += `使用者：${messageText}\nAI：${aiReply}\n`;
 
             } catch (error) {
                 console.error(error);
