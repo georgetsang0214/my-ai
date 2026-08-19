@@ -13,12 +13,16 @@
         .message { margin-bottom: 15px; padding: 10px; border-radius: 8px; max-width: 80%; word-break: break-all; line-height: 1.5; }
         .user { background-color: #007bff; color: white; align-self: flex-end; margin-left: auto; }
         .ai { background-color: #e9ecef; color: #333; align-self: flex-start; }
-        #input-container { display: flex; padding: 10px; align-items: center; }
-        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 5px; cursor: pointer; }
+        .message img { max-width: 100%; border-radius: 6px; margin-top: 5px; display: block; }
+        #input-container { display: flex; padding: 10px; align-items: center; gap: 5px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #0056b3; }
+        /* 📎 檔案上傳按鈕美化 */
+        .file-btn { background: #6c75d8; font-size: 16px; }
+        .file-btn:hover { background: #5a62c4; }
         /* 🎙️ 麥克風按鈕樣式 */
-        .mic-btn { background: #28a745; margin-left: 5px; font-size: 16px; padding: 10px 15px; }
+        .mic-btn { background: #28a745; font-size: 16px; }
         .mic-btn:hover { background: #218838; }
         .recording { background: #dc3545 !important; animation: blink 1s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -26,12 +30,13 @@
 </head>
 <body>
 
-    <h2>🤖 我的雙向語音 AI 助理 (廣東話對講)</h2>
+    <h2>🤖 我的多模態 AI 助理 (文字 + 語音 + 睇相)</h2>
     <div id="chat-container">
         <div id="messages"></div>
         <div id="input-container">
-            <input type="text" id="user-input" placeholder="請輸入訊息或按麥克風說話..." onkeydown="if(event.key==='Enter') sendMessage()">
-            <!-- 🎙️ 麥克風按鈕 -->
+            <input type="file" id="image-input" accept="image/*" style="display: none;" onchange="handleImageSelection(event)">
+            <button class="file-btn" onclick="document.getElementById('image-input').click()" title="上傳圖片">📎</button>
+            <input type="text" id="user-input" placeholder="請輸入訊息、按相紙上傳圖片，或按咪高峰說話..." onkeydown="if(event.key==='Enter') sendMessage()">
             <button id="mic-button" class="mic-btn" onclick="toggleVoiceRecognition()">🎙️</button>
             <button onclick="sendMessage()">發送</button>
         </div>
@@ -41,8 +46,9 @@
         const API_URL = "https://n8n.gcfmarket.com/webhook/system-api"; 
         let recognition;
         let isRecording = false;
+        let selectedImageBase64 = null;
 
-        // 🔊 廣東話真人朗讀引擎
+        // 🔊 廣東話真人朗讀引擎（保留函數，但取消自動調用，有需要可以手動叫佢讀）
         function speakCantonese(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -59,8 +65,8 @@
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
-            recognition.continuous = false; // 講完一句自動停止
-            recognition.lang = 'zh-HK'; // 強制設定識別香港廣東話
+            recognition.continuous = false; 
+            recognition.lang = 'zh-HK'; 
             recognition.interimResults = false;
 
             recognition.onstart = function() {
@@ -80,7 +86,6 @@
             recognition.onresult = function(event) {
                 const speechToText = event.results[0][0].transcript;
                 document.getElementById('user-input').value = speechToText;
-                // 辨識成功後，自動幫你觸發發送！
                 sendMessage();
             };
 
@@ -98,27 +103,59 @@
             if (isRecording) {
                 recognition.stop();
             } else {
-                window.speechSynthesis.cancel(); // 說話前先停止 AI 的播音
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                 recognition.start();
             }
+        }
+
+        // 🖼️ 處理圖片上傳並轉成 Base64
+        function handleImageSelection(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedImageBase64 = e.target.result;
+                // 提示用戶已經成功選取圖片
+                const inputField = document.getElementById('user-input');
+                if (!inputField.value) {
+                    inputField.value = "請幫我睇下呢張相入面有乜嘢？";
+                }
+                // 視覺上畀個提示話有相加入咗
+                alert("圖片已成功載入！可以按下發送傳畀 AI。");
+            };
+            reader.readAsDataURL(file);
         }
 
         async function sendMessage() {
             const inputField = document.getElementById('user-input');
             const messageText = inputField.value.trim();
-            if (!messageText) return;
+            if (!messageText && !selectedImageBase64) return;
 
-            appendMessage(messageText, 'user');
+            // 建立要送出嘅訊息內容（包含文字同埋圖片預覽）
+            let displayContent = messageText;
+            let imageToSend = selectedImageBase64;
+
+            appendMessage(displayContent, 'user', false, imageToSend);
+            
+            // 清空輸入同暫存圖片
             inputField.value = '';
+            let currentImage = selectedImageBase64;
+            selectedImageBase64 = null;
+            document.getElementById('image-input').value = '';
 
             appendMessage("AI 正在思考中...", 'ai', true);
 
             try {
+                // 傳送 JSON 格式到 n8n（包埋 message 同 image 欄位）
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: messageText })
+                    body: JSON.stringify({ 
+                        message: messageText || "請分析這張圖片", 
+                        image: currentImage // 呢度就係 Base64 格式嘅圖片
+                    })
                 });
 
                 const rawText = await response.text();
@@ -138,8 +175,8 @@
                     if (cleanText.startsWith('{') && cleanText.includes('"reply"')) {
                         try {
                             const match = cleanText.match(/"reply"\s*:\s*"(.*)"/s);
-                            if (match && match) {
-                                aiReply = match.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                            if (match && match[1]) {
+                                aiReply = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
                             } else {
                                 aiReply = cleanText;
                             }
@@ -158,8 +195,7 @@
                 removeLoadingMessage();
                 appendMessage(aiReply, 'ai');
 
-                // 觸發：文字噴出後自動朗讀
-                speakCantonese(aiReply);
+                // 註：已經移除了自動語音朗讀 speakCantonese(aiReply)，所以依家只會出文字，唔會出聲！
 
             } catch (error) {
                 console.error(error);
@@ -168,12 +204,18 @@
             }
         }
 
-        function appendMessage(text, sender, isLoading = false) {
+        function appendMessage(text, sender, isLoading = false, imageSrc = null) {
             const messagesDiv = document.getElementById('messages');
             const msgElement = document.createElement('div');
             msgElement.classList.add('message', sender);
             if (isLoading) msgElement.id = 'loading-msg';
-            msgElement.innerText = text;
+
+            let contentHtml = `<div>${escapeHtml(text)}</div>`;
+            if (imageSrc) {
+                contentHtml += `<img src="${imageSrc}" alt="上傳的圖片">`;
+            }
+            msgElement.innerHTML = contentHtml;
+
             messagesDiv.appendChild(msgElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
@@ -181,6 +223,10 @@
         function removeLoadingMessage() {
             const loadingMsg = document.getElementById('loading-msg');
             if (loadingMsg) loadingMsg.remove();
+        }
+
+        function escapeHtml(string) {
+            return string.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
